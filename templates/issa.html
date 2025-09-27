@@ -1,0 +1,109 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>النظام الجيولوجي المتقدم - اليمن</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ maps_api_key }}&libraries=places"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin:0; padding:0; }
+        #map { height: 400px; width: 100%; }
+        #controls { padding: 10px; background: #f0f0f0; }
+        #results { padding: 10px; margin-top: 10px; background: #fff; border: 1px solid #ccc; }
+        .label { font-weight: bold; }
+        img.dem-img { max-width: 100%; margin-top: 10px; border: 1px solid #000; }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <label>الإحداثيات: </label>
+        <input type="text" id="lat" placeholder="خط العرض" value="{{ default_lat }}">
+        <input type="text" id="lon" placeholder="خط الطول" value="{{ default_lon }}">
+        <label>حجم المنطقة (درجة): </label>
+        <input type="number" id="bbox_size" value="0.03" step="0.01" min="0.01">
+        <button id="analyzeBtn">ابدأ التحليل</button>
+    </div>
+    <div id="map"></div>
+    <div id="results"></div>
+
+    <script>
+        let map;
+        let marker;
+
+        function initMap() {
+            const defaultPos = { lat: parseFloat("{{ default_lat }}"), lng: parseFloat("{{ default_lon }}") };
+            map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 10,
+                center: defaultPos
+            });
+            marker = new google.maps.Marker({
+                position: defaultPos,
+                map: map,
+                draggable: true
+            });
+
+            map.addListener("click", (e) => {
+                marker.setPosition(e.latLng);
+                document.getElementById("lat").value = e.latLng.lat().toFixed(6);
+                document.getElementById("lon").value = e.latLng.lng().toFixed(6);
+            });
+        }
+
+        document.getElementById("analyzeBtn").addEventListener("click", () => {
+            const lat = parseFloat(document.getElementById("lat").value);
+            const lon = parseFloat(document.getElementById("lon").value);
+            const bbox_size = parseFloat(document.getElementById("bbox_size").value);
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = "جاري التحليل... ⏳";
+
+            fetch("/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ lat: lat, lon: lon, bbox_size: bbox_size })
+            })
+            .then(response => response.json())
+            .then(data => {
+                let html = `<h3>🌍 نتائج التحليل الجيولوجي</h3>`;
+                html += `<p>⏱️ وقت المعالجة: ${data.processing_time} | 📊 جودة البيانات: ${data.data_quality}</p>`;
+                html += `<h4>🏔️ تحليل التضاريس</h4>`;
+                html += `<ul>
+                    <li>متوسط الارتفاع: ${data.analysis_report.terrain_analysis.mean_elevation.toFixed(2)} م</li>
+                    <li>أعلى ارتفاع: ${data.analysis_report.terrain_analysis.max_elevation.toFixed(2)} م</li>
+                    <li>أقل ارتفاع: ${data.analysis_report.terrain_analysis.min_elevation.toFixed(2)} م</li>
+                    <li>خشونة السطح: ${data.analysis_report.terrain_analysis.roughness.toFixed(4)}</li>
+                </ul>`;
+                html += `<h4>⚠️ تحليل الفراغات</h4>`;
+                html += `<ul>
+                    <li>مناطق عالية الاحتمال: ${data.analysis_report.void_analysis.statistics.high_probability_area.toFixed(2)}%</li>
+                    <li>مناطق متوسطة الاحتمال: ${data.analysis_report.void_analysis.statistics.medium_probability_area.toFixed(2)}%</li>
+                    <li>مستوى المخاطر: ${data.analysis_report.void_analysis.risk_assessment.level}</li>
+                    <li>الإجراء: ${data.analysis_report.void_analysis.risk_assessment.action}</li>
+                </ul>`;
+                html += `<h4>💰 تحليل الذهب - أولوية عالية</h4>`;
+                html += `<ul>
+                    <li>مستوى الثقة: ${(data.gold_analysis.confidence*100).toFixed(1)}%</li>
+                    <li>الحالة: ${data.gold_analysis.status}</li>
+                    <li>التوصية: ${data.gold_analysis.recommendation}</li>
+                    <li>المؤشرات: ${data.gold_analysis.indicators.join(", ")}</li>
+                </ul>`;
+                html += `<h4>📍 مواقع الفراغات عالية الاحتمال</h4><ul>`;
+                data.void_locations.high.forEach(loc => {
+                    html += `<li>الموقع: ${loc.lat.toFixed(6)}, ${loc.lon.toFixed(6)} | الاحتمال: ${(loc.probability*100).toFixed(1)}% | المخاطر: ${loc.risk}</li>`;
+                });
+                html += `</ul>`;
+                html += `<h4>🗺️ صورة DEM للمنطقة</h4>`;
+                html += `<img src="data:image/png;base64,${data.image}" class="dem-img">`;
+
+                resultsDiv.innerHTML = html;
+            })
+            .catch(err => {
+                resultsDiv.innerHTML = "حدث خطأ أثناء التحليل. 🔴";
+                console.error(err);
+            });
+        });
+
+        window.onload = initMap;
+    </script>
+</body>
+</html>
+

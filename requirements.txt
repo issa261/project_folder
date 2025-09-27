@@ -1,7 +1,15 @@
-Flask==3.0.0
-requests==2.31.0
-numpy==2.0.0
-scikit-learn==1.3.2
-matplotlib==3.8.0
-Pillow==10.1.0
+# أدوات البناء الأساسية
+setuptools>=65.0
+wheel
+cython
+
+# مكتبات أساسية
+Flask==2.3.3
 gunicorn==21.2.0
+requests==2.32.3
+numpy==1.26.4
+scikit-learn==1.4.2
+
+# مكتبات جغرافية ورسومات
+rasterio==1.3.9
+matplotlib==3.7.2

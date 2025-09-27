@@ -1,0 +1,6 @@
+flask
+numpy
+rasterio
+matplotlib
+scikit-learn
+requests
